@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSS only -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <style>
+        a{
+                text-decoration: none;
+                color: white;
+        }
+    
+        a:hover{
+                color: white;
+        }
+            
+        .btn-dark:hover{
+                background-color: darkslategray;
+        }
+    </style>
+    <title>Blog</title>
+</head>
+<body>
+    <div class="container mt-5">
+
+        <div class="d-flex justify-content-between mb-5">
+            <div class="d-flex">
+                <button class="btn-dark btn me-2"><a href="blog.html">Blog</a></button>
+                <button class="btn-dark btn me-2"><a href="profil.html">Profil</a></button>
+                <button class="btn-dark btn me-2"><a href="compte.html">Compte</a></button>
+            </div>
+            <div class="d-flex">
+                <button class="btn-success btn me-2"><a href="connexion.html">Connexion</a></button>
+                <button class="btn-success btn"><a href="inscription.html">Inscription</a></button>
+            </div>
+        </div>
+
+        <h1 class="mb-4">Blog</h1>
+        <p class="mb-1">Drag and Drop your images in the blue box</p>
+        <p class="mb-3">You can edit this card as much as you like</p>
+
+        <div class="card mb-5" style="width: 18rem;">
+            <div id="drop" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);" class="border border-primary" style="min-height: 100px"></div>
+
+            <div class="card-body">
+              <h5 class="card-title" contenteditable="true" id="title">Title</h5>
+              <p class="card-text" contenteditable="true" id="par">Some quick example text to build on the card title and make up the bulk of the card's content.</p>
+              <button class="btn btn-primary" id="save">Save</button>
+            </div>
+        </div>
+
+
+    </div>
+
+    <!-- JavaScript Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+
+    <script>
+        let dropHandler = function(ev){
+            ev.preventDefault();
+            if (ev.dataTransfer.items) {
+                console.log(ev.dataTransfer.items);
+                for (item of ev.dataTransfer.items) {
+                    if (item.kind === 'file') {
+                        var file = item.getAsFile();
+                        let name = file.name;
+                        console.log(name);
+                        document.getElementById("drop").innerHTML = `<img src="uploads/${name}" class="card-img-top" height="200px" style="object-fit:cover;" id="image">`;
+                    }
+                }
+            } else {
+                console.log("no items ?");
+            }
+
+        };
+
+        let dragOverHandler = function(ev){
+            console.log('File(s) in drop zone');
+
+            // Prevent default behavior (Prevent file from being opened)
+            ev.preventDefault();
+
+        };
+
+
+        document.getElementById("save").addEventListener("click", function(){
+            console.log("click");
+
+            if (!window.indexedDB) {
+                window.alert("Votre navigateur ne supporte pas une version stable d'IndexedDB. Quelques fonctionnalités ne seront pas disponibles.")
+            }
+            
+            var request = window.indexedDB.open("cardsDB", 1);
+
+
+            request.onerror = function(event) {
+                console.log(request.errorCode);
+            };
+
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                console.log(db.version);
+                var trans = db.transaction(["card"], "readwrite");
+                var store = trans.objectStore("card");
+                data = {image: document.getElementById("image").getAttribute("src"),
+                        title: document.getElementById("title").innerHTML,
+                        para: document.getElementById("par").innerHTML
+                    };
+                var request = store.put(data);
+                request.onsuccess = function(e){
+                    console.log("success ?");
+                    let id = e.target.result;
+                    let newCard = document.createElement("div.newCard");
+                    newCard.innerHTML = `
+                    <div class="card mb-5" id="a${id}" style="width: 18rem;">
+                        <div id="drop" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);" class="border border-primary" style="min-height: 100px"><img src="${data.image}" class="card-img-top" height="200px" style="object-fit:cover;" id="image"></div>
+
+                        <div class="card-body">
+                        <h5 class="card-title" contenteditable="true" id="title">${data.title}</h5>
+                        <p class="card-text" contenteditable="true" id="par">${data.para}</p>
+                        <button class="btn btn-primary" data-id="${id}" id="modify" onclick="modify(event);">Modify</button>
+                        <button class="btn btn-primary" id="publish">Publish</button>
+                        <button class="btn btn-primary" id="delete">Delete</button>
+                        </div>
+                    </div>
+                    `;
+                    document.querySelector("div.container").append(newCard);
+                };
+                request.onerror = function(e){
+                    console.log('Error adding: '+ e);
+                };
+            };
+
+            request.onupgradeneeded = function(event) {
+                console.log("upgrade");
+                var db = event.target.result;
+                var objectStore = db.createObjectStore("card", { keyPath: "id", autoIncrement: true });
+                objectStore.createIndex("image", "image", {unique: false});
+                objectStore.createIndex("title", "title", {unique: false});
+                objectStore.createIndex("para", "para", {unique: false});
+                data = {image: document.getElementById("image").getAttribute("src"),
+                        title: document.getElementById("title").innerHTML,
+                        para: document.getElementById("par").innerHTML
+                    };
+                objectStore.add(data);
+            };
+
+        });
+
+        function modify(e){
+            console.log("modification");
+            var key = e.path[0].getAttribute("data-id");
+            console.log(key);
+
+            var request = window.indexedDB.open("cardsDB", 1);
+            request.onerror = function(event) {
+                console.log(request.errorCode);
+            };
+
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                var trans = db.transaction(["card"], "readwrite");
+                var store = trans.objectStore("card");
+                image = document.querySelector(`div#a${key} #image`).getAttribute("src");
+                title = document.querySelector(`div#a${key} #title`).innerHTML;
+                para = document.querySelector(`div#a${key} #par`).innerHTML;
+                data = {image: image,
+                        title: title,
+                        para: para
+                    };
+                var cursorRequest = store.openCursor();
+                cursorRequest.onsuccess = function(e){
+                    var cursor = e.target.result;
+                    if(cursor){
+                        if(cursor.primaryKey == key){
+                            console.log(cursor.value);
+                            console.log(cursor.primaryKey);
+                            cursor.update(Object.assign(cursor.value, data));
+                        }
+
+                        cursor.continue();
+                    }
+                    else{
+                        console.log("end");
+                    }
+                    
+                };
+
+            }
+
+        }
+
+
+    </script>
+</body>
+</html>
